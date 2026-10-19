@@ -1,6 +1,6 @@
 {
 	"name": "page-extractor",
-	"version": "0.4.0",
+	"version": "0.5.0",
 	"description": "Extract text from PDF pages. Works with PDF++ plugin for enhanced PDF viewing.",
 	"main": "main.js",
 	"scripts": {
