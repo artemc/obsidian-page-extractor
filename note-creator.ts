@@ -1,0 +1,142 @@
+import { App, MarkdownView } from 'obsidian';
+import { PageExtractorSettings } from './types';
+
+export class NoteCreator {
+    constructor(private app: App, private settings: PageExtractorSettings) {}
+
+    async createNewNoteWithText(extractedText: string, pdfPath: string, pageNumber?: number) {
+        const fileName = this.generateFileName(pdfPath, pageNumber);
+        const folderPath = this.settings.noteFolder;
+        const fullPath = folderPath ? `${folderPath}/${fileName}.md` : `${fileName}.md`;
+
+        // Ensure the folder exists
+        if (folderPath) {
+            const folder = this.app.vault.getAbstractFileByPath(folderPath);
+            if (!folder) {
+                await this.app.vault.createFolder(folderPath);
+            }
+        }
+
+        const noteContent = this.formatExtractedText(extractedText, pdfPath, pageNumber);
+        
+        try {
+            const file = await this.app.vault.create(fullPath, noteContent);
+            
+            // Open the new note - either to the right or in current pane
+            const leaf = this.settings.openToTheRight 
+                ? this.app.workspace.getLeaf('split', 'vertical')
+                : this.app.workspace.getLeaf(false);
+            await leaf.openFile(file);
+            
+            return fileName;
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.includes('already exists')) {
+                const timestamp = Date.now();
+                const uniquePath = folderPath ? `${folderPath}/${fileName}-${timestamp}.md` : `${fileName}-${timestamp}.md`;
+                const file = await this.app.vault.create(uniquePath, noteContent);
+                
+                // Open the new note - either to the right or in current pane
+                const leaf = this.settings.openToTheRight 
+                    ? this.app.workspace.getLeaf('split', 'vertical')
+                    : this.app.workspace.getLeaf(false);
+                await leaf.openFile(file);
+                
+                return `${fileName}-${timestamp}`;
+            }
+            throw error;
+        }
+    }
+
+    async appendTextToTargetNote(extractedText: string, pdfPath: string, pageNumber: number, targetPreference: 'current' | 'rightmost' = 'current') {
+        let targetView: MarkdownView | null = null;
+
+        if (targetPreference === 'rightmost') {
+            targetView = this.findRightmostMarkdownView();
+        }
+        
+        // Fallback to current active view if rightmost not found or not specified
+        if (!targetView) {
+            targetView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        }
+
+        if (!targetView) {
+            throw new Error('No active note to append to');
+        }
+
+        const editor = targetView.editor;
+        const lastLine = editor.lastLine();
+        const endOfFile = { line: lastLine, ch: editor.getLine(lastLine).length };
+        
+        const formattedText = `\n\n${extractedText.trim()}`;
+        
+        editor.replaceRange(formattedText, endOfFile);
+
+        // Focus the target view to make it clear where the text was added
+        this.app.workspace.setActiveLeaf(targetView.leaf);
+    }
+
+    private findRightmostMarkdownView(): MarkdownView | null {
+        const leaves = this.app.workspace.getLeavesOfType('markdown');
+        if (leaves.length === 0) return null;
+
+        // Find the leaf with the highest x-coordinate (rightmost position)
+        let rightmostLeaf = leaves[0];
+        let maxX = 0;
+
+        for (const leaf of leaves) {
+            // Get the DOM element of the leaf to check its position
+            const leafEl = leaf.view.containerEl;
+            const rect = leafEl.getBoundingClientRect();
+            
+            if (rect.x >= maxX) {
+                maxX = rect.x;
+                rightmostLeaf = leaf;
+            }
+        }
+
+        return rightmostLeaf.view instanceof MarkdownView ? rightmostLeaf.view : null;
+    }
+
+    private generateFileName(pdfPath: string, pageNumber?: number): string {
+        const now = new Date();
+        const pdfName = pdfPath.split('/').pop()?.replace('.pdf', '') || 'Unknown PDF';
+        
+        let fileName = this.settings.noteNameTemplate
+            .replace('{{date}}', now.toISOString().split('T')[0])
+            .replace('{{time}}', now.toTimeString().split(' ')[0].replace(/:/g, '-'))
+            .replace('{{pdf}}', pdfName)
+            .replace('{{page}}', pageNumber?.toString() || 'Full');
+        
+        if (this.settings.includeSourcePdfName && !this.settings.noteNameTemplate.includes('{{pdf}}')) {
+            fileName = `${pdfName} - ${fileName}`;
+        }
+        
+        if (this.settings.includePageNumber && !this.settings.noteNameTemplate.includes('{{page}}')) {
+            fileName = pageNumber ? `${fileName} - Page ${pageNumber}` : `${fileName} - Full PDF`;
+        }
+        
+        return fileName.replace(/[<>:"/\\|?*]/g, '-');
+    }
+
+    private formatExtractedText(text: string, pdfPath: string, pageNumber?: number): string {
+        const pdfName = pdfPath.split('/').pop() || 'Unknown PDF';
+        
+        // Create the link field in the format [[filename#page=pageNumber]]
+        const linkValue = pageNumber 
+            ? `"[[${pdfName}#page=${pageNumber}]]"`
+            : `"[[${pdfName}]]"`;
+        const backlinkValue = pageNumber 
+            ? `"[[${pdfName}#page=${pageNumber}&rect=0,0,10,10|go back]]"`
+            : `"[[${pdfName}]]"`;
+        
+        const frontmatter = `---
+link: ${linkValue}
+backlink: ${backlinkValue}
+---
+
+`;
+        
+        return `${frontmatter}${text.trim()}`;
+    }
+}
