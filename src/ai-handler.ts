@@ -79,12 +79,12 @@ export class AIHandler {
         const debugContent = `
 ---
 > [!NOTE]- Debug Info
-> - Time Sent: ${debugInfo.timeSent}
-> - Time Received: ${debugInfo.timeReceived}
-> - Response Time: ${debugInfo.responseTime}ms
-> - Model: ${debugInfo.model}
-> - Input Tokens: ${debugInfo.inputTokens || 'N/A'}
-> - Output Tokens: ${debugInfo.outputTokens || 'N/A'}
+> - Time Sent: ${String(debugInfo.timeSent)}
+> - Time Received: ${String(debugInfo.timeReceived)}
+> - Response Time: ${String(debugInfo.responseTime)}ms
+> - Model: ${String(debugInfo.model)}
+> - Input Tokens: ${typeof debugInfo.inputTokens === 'number' ? debugInfo.inputTokens : 'N/A'}
+> - Output Tokens: ${typeof debugInfo.outputTokens === 'number' ? debugInfo.outputTokens : 'N/A'}
 >
 >> [!NOTE]- Raw request
 >> \`\`\`json
@@ -105,8 +105,8 @@ export class AIHandler {
         return content.replace(frontmatterRegex, '').trim();
     }
 
-    private parseFrontmatter(frontmatterText: string): Record<string, any> {
-        const frontmatter: Record<string, any> = {};
+    private parseFrontmatter(frontmatterText: string): Record<string, unknown> {
+        const frontmatter: Record<string, unknown> = {};
         if (!frontmatterText.trim()) {
             return frontmatter;
         }
@@ -121,7 +121,7 @@ export class AIHandler {
                 
                 if (key) {
                     // Try to parse the value (remove quotes if present)
-                    let parsedValue: any = value;
+                    let parsedValue: unknown = value;
                     if ((value.startsWith('"') && value.endsWith('"')) || 
                         (value.startsWith("'") && value.endsWith("'"))) {
                         parsedValue = value.slice(1, -1);
@@ -148,17 +148,17 @@ export class AIHandler {
         return list.split(',').map(field => field.trim()).filter(Boolean);
     }
 
-    private formatFrontmatterValue(value: any, key: string): string {
+    private formatFrontmatterValue(value: unknown, key: string): string {
         if (this.parseFieldList(this.settings.aiLinkFields).includes(key) && value) {
             if (Array.isArray(value)) {
-                const a = value.map(item => `"[[${item}]]"`);
+                const a = value.map(item => `"[[${toYamlText(item)}]]"`);
                 return `[${a.join(', ')}]`;
             }
-            return `"[[${value}]]"`;
+            return `"[[${toYamlText(value)}]]"`;
         }
 
         if (this.parseFieldList(this.settings.aiQuotedFields).includes(key)) {
-            return `"${String(value)}"`;
+            return `"${toYamlText(value)}"`;
         }
 
         if (Array.isArray(value)) {
@@ -167,14 +167,14 @@ export class AIHandler {
         if (typeof value === 'string' && (value.includes(':') || value.includes(',') || value.includes('#'))) {
             return `"${value}"`;
         }
-        return String(value);
+        return toYamlText(value);
     }
 
     private async applyAIResponse(file: TFile, aiResponse: AIResponse, originalContent: string): Promise<TFile> {
         try {
             // Extract original frontmatter
             const frontmatterMatch = originalContent.match(/^---\s*\n([\s\S]*?)\n---\s*\n/);
-            let existingFrontmatterObj: Record<string, any> = {};
+            let existingFrontmatterObj: Record<string, unknown> = {};
             
             if (frontmatterMatch && frontmatterMatch[1]) {
                 existingFrontmatterObj = this.parseFrontmatter(frontmatterMatch[1]);
@@ -184,7 +184,7 @@ export class AIHandler {
             const contentWithoutFrontmatter = this.removeFrontmatter(originalContent);
             
             // Merge frontmatter with AI frontmatter taking precedence
-            let mergedFrontmatter: Record<string, any> = { ...existingFrontmatterObj };
+            let mergedFrontmatter: Record<string, unknown> = { ...existingFrontmatterObj };
             
             if (aiResponse.frontmatter) {
                 // AI frontmatter overrides existing frontmatter (removes duplicates)
@@ -259,4 +259,8 @@ export class AIHandler {
         this.settings = settings;
         this.aiService.updateSettings(settings);
     }
+}
+
+function toYamlText(value: unknown): string {
+    return typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
 }

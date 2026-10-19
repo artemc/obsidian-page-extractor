@@ -34,7 +34,7 @@ export interface PdfPageInfo extends PdfInfo {
 }
 
 export interface AIResponse {
-    frontmatter?: Record<string, any>;
+    frontmatter?: Record<string, unknown>;
     note_name?: string;
     note_text?: string;
 }

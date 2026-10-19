@@ -1,5 +1,5 @@
 // gemini-service.ts
-import { App, Notice } from 'obsidian';
+import { App, Notice, requestUrl } from 'obsidian';
 import { AIResponse } from './types';
 import { BaseAIService } from './base-ai-service';
 
@@ -47,26 +47,32 @@ export class GeminiService extends BaseAIService {
                 body: requestBody,
             };
 
-            const response = await fetch(`${apiUrl}?key=${this.apiKey}`, {
+            const response = await requestUrl({
+                url: apiUrl,
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody)
+                contentType: 'application/json',
+                headers: { 'x-goog-api-key': this.apiKey },
+                body: JSON.stringify(requestBody),
+                throw: false,
             });
 
             const timeReceived = new Date();
             debugInfo.timeReceived = timeReceived.toISOString();
             debugInfo.responseTime = timeReceived.getTime() - timeSent.getTime();
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error('Gemini API error:', errorData);
-                debugInfo.response = errorData;
-                throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorData?.error?.message}`);
+            if (response.status >= 400) {
+                let errorMessage = response.text;
+                try {
+                    const errorData = response.json as GeminiErrorResponse;
+                    debugInfo.response = errorData;
+                    errorMessage = errorData.error?.message ?? errorMessage;
+                } catch {
+                    debugInfo.response = response.text;
+                }
+                throw new Error(`Gemini API error: ${response.status} - ${errorMessage}`);
             }
 
-            const data = await response.json();
+            const data = response.json as GeminiGenerateResponse;
             debugInfo.response = data;
 
             // Extract token counts if available
@@ -114,4 +120,13 @@ export class GeminiService extends BaseAIService {
         this.promptFile = promptFile;
         this.fallbackPrompt = fallbackPrompt;
     }
+}
+
+interface GeminiErrorResponse {
+    error?: { message?: string };
+}
+
+interface GeminiGenerateResponse {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
 }

@@ -48,10 +48,10 @@ export abstract class BaseAIService {
     protected parseJsonSafely(jsonString: string): AIResponse {
         const attempts: (() => AIResponse)[] = [
             // First attempt: try parsing as-is
-            () => JSON.parse(jsonString),
+            () => JSON.parse(jsonString) as AIResponse,
             
             // Second attempt: clean common issues and parse
-            () => JSON.parse(this.cleanJsonString(jsonString)),
+            () => JSON.parse(this.cleanJsonString(jsonString)) as AIResponse,
             
             // Third attempt: try to extract just the object content and wrap it properly
             () => {
@@ -59,7 +59,7 @@ export abstract class BaseAIService {
                 if (objectMatch) {
                     const objectContent = objectMatch[1];
                     const cleaned = this.cleanJsonString(`{${objectContent}}`);
-                    return JSON.parse(cleaned);
+                    return JSON.parse(cleaned) as AIResponse;
                 }
                 throw new Error('No object found');
             },
@@ -99,16 +99,13 @@ export abstract class BaseAIService {
                 }
                 
                 const reconstructed = validLines.join('\n');
-                return JSON.parse(reconstructed);
+                return JSON.parse(reconstructed) as AIResponse;
             }
         ];
 
-        for (let i = 0; i < attempts.length; i++) {
+        for (const [i, attempt] of attempts.entries()) {
             try {
-                const result = attempts[i]();
-                if (i > 0) {
-                    console.log(`JSON parsing succeeded on attempt ${i + 1}`);
-                }
+                const result = attempt();
                 return result;
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);

@@ -1,5 +1,5 @@
 // ollama-service.ts
-import { App, Notice } from 'obsidian';
+import { App, Notice, requestUrl } from 'obsidian';
 import { AIResponse } from './types';
 import { BaseAIService } from './base-ai-service';
 
@@ -35,24 +35,24 @@ export class OllamaService extends BaseAIService {
                 body: requestBody,
             };
 
-            const response = await fetch(`${this.ollamaUrl}/api/generate`, {
+            const response = await requestUrl({
+                url: `${this.ollamaUrl}/api/generate`,
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestBody)
+                contentType: 'application/json',
+                body: JSON.stringify(requestBody),
+                throw: false,
             });
 
             const timeReceived = new Date();
             debugInfo.timeReceived = timeReceived.toISOString();
             debugInfo.responseTime = timeReceived.getTime() - timeSent.getTime();
 
-            if (!response.ok) {
-                debugInfo.response = await response.text();
-                throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
+            if (response.status >= 400) {
+                debugInfo.response = response.text;
+                throw new Error(`Ollama API error: ${response.status}`);
             }
 
-            const data = await response.json();
+            const data = response.json as OllamaGenerateResponse;
             debugInfo.response = data;
 
             // Extract token counts if available
@@ -87,4 +87,9 @@ export class OllamaService extends BaseAIService {
         this.promptFile = promptFile;
         this.fallbackPrompt = fallbackPrompt;
     }
+}
+interface OllamaGenerateResponse {
+    response: string;
+    prompt_eval_count?: number;
+    eval_count?: number;
 }

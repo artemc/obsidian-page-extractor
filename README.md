@@ -42,15 +42,27 @@ An Obsidian plugin to extract text and content from PDF files and process it wit
 3.  **Use Commands**: Access the extraction options through the command palette (`Cmd/Ctrl + P`).
 4.  **Analyze with AI**:
     - Open a note you want to analyze.
-    - Click the lightbulb icon in the ribbon or run the "AI Analyze Current Note" command.
+    - Click the lightbulb icon in the ribbon or run the "AI analyze current note" command.
 
 ## Example prompt
 
-See [`examples/ai-analyze-prompt.md`](examples/ai-analyze-prompt.md): put a copy in your vault and set its path in **AI Prompt File**.
+See [`examples/ai-analyze-prompt.md`](examples/ai-analyze-prompt.md): put a copy in your vault and set its path in **AI prompt file**.
+
+## Network use and privacy
+
+The plugin works offline, except for the optional AI analysis, which is off by default:
+
+- **Ollama** sends the note content to the Ollama URL you configure (usually your own machine).
+- **Gemini** sends the note content to the Google Gemini API (`generativelanguage.googleapis.com`) using your API key, stored in Obsidian secret storage. Google's terms apply.
+
+Nothing is sent until you enable AI analysis and run it on a note.
 
 ## Installation
 
-Download `main.js`, `manifest.json` and `styles.css` from the [latest release](../../releases/latest) into `<vault>/.obsidian/plugins/obsidian-page-extractor/` and enable the plugin in Obsidian.
+Requires Obsidian 1.13 or later.
+
+
+Download `main.js`, `manifest.json` and `styles.css` from the [latest release](../../releases/latest) into `<vault>/.obsidian/plugins/page-extractor/` and enable the plugin in Obsidian.
 
 ## Development
 
@@ -58,6 +70,7 @@ Download `main.js`, `manifest.json` and `styles.css` from the [latest release](.
 npm install
 npm run build   # type check + production build -> main.js
 npm run dev     # rebuild on changes
+npm run lint    # ESLint with eslint-plugin-obsidianmd
 ```
 
 Release: bump the version (`npm version <x.y.z>` updates `manifest.json` and `versions.json`), push the tag; GitHub Actions builds the plugin and attaches `main.js`, `manifest.json`, `styles.css` to the release.

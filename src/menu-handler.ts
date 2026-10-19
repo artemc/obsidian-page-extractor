@@ -1,4 +1,4 @@
-import { App, Menu, TFile, Notice, MarkdownView } from 'obsidian';
+import { App, Menu, TFile, Notice } from 'obsidian';
 import { PdfDetector } from './pdf-detector';
 import { TextExtractor } from './text-extractor';
 import { NoteCreator } from './note-creator';

@@ -1,14 +1,19 @@
-import { Plugin, Menu, TFile, WorkspaceLeaf } from 'obsidian';
+import { EventRef, Menu, Plugin, TFile } from 'obsidian';
 import { PageExtractorSettings } from './types';
 import { DEFAULT_SETTINGS } from './settings';
 import { MenuHandler } from './menu-handler';
 import { PageExtractorSettingTab } from './settings-tab';
 import { AIHandler } from './ai-handler';
 
+// PDF++ adds a 'pdf-menu' workspace event that is not part of the Obsidian API.
+interface PdfPlusWorkspace {
+    on(name: 'pdf-menu', callback: (menu: Menu, data: { pageNumber: number; selection?: string }) => void): EventRef;
+}
+
 export default class PageExtractorPlugin extends Plugin {
-    settings: PageExtractorSettings;
-    private menuHandler: MenuHandler;
-    private aiHandler: AIHandler;
+    settings!: PageExtractorSettings;
+    private menuHandler!: MenuHandler;
+    private aiHandler!: AIHandler;
     private aiRibbonIcon: HTMLElement | null = null;
 
     async onload() {
@@ -22,15 +27,15 @@ export default class PageExtractorPlugin extends Plugin {
 
         // Register PDF++ context menu integration
         this.registerEvent(
-            (this.app.workspace as any).on('pdf-menu', (menu: Menu, data: { pageNumber: number; selection?: string }) => {
+            (this.app.workspace as unknown as PdfPlusWorkspace).on('pdf-menu', (menu, data) => {
                 this.menuHandler.addPdfPageExtractMenuItems(menu, data);
             })
         );
 
         // Register context menu handler for PDF files
         this.registerEvent(
-            this.app.workspace.on('file-menu', (menu: Menu, file: TFile, source: string, leaf?: WorkspaceLeaf) => {
-                if (file.extension.toLowerCase() === 'pdf') {
+            this.app.workspace.on('file-menu', (menu: Menu, file) => {
+                if (file instanceof TFile && file.extension.toLowerCase() === 'pdf') {
                     this.menuHandler.addPdfFileContextMenuItems(menu, file);
                 }
             })
@@ -43,7 +48,7 @@ export default class PageExtractorPlugin extends Plugin {
             checkCallback: (checking: boolean) => {
                 const pageInfo = this.menuHandler.getCurrentPdfPageInfo();
                 if (pageInfo) {
-                    if (!checking) this.menuHandler.extractPdfPage(pageInfo, 'new-note');
+                    if (!checking) void this.menuHandler.extractPdfPage(pageInfo, 'new-note');
                     return true;
                 }
                 return false;
@@ -56,7 +61,7 @@ export default class PageExtractorPlugin extends Plugin {
             checkCallback: (checking: boolean) => {
                 const pageInfo = this.menuHandler.getCurrentPdfPageInfo();
                 if (pageInfo) {
-                    if (!checking) this.menuHandler.extractPdfPage(pageInfo, 'current-note');
+                    if (!checking) void this.menuHandler.extractPdfPage(pageInfo, 'current-note');
                     return true;
                 }
                 return false;
@@ -69,7 +74,7 @@ export default class PageExtractorPlugin extends Plugin {
             checkCallback: (checking: boolean) => {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (activeFile?.extension.toLowerCase() === 'pdf') {
-                    if (!checking) this.menuHandler.extractFullPdfText(activeFile);
+                    if (!checking) void this.menuHandler.extractFullPdfText(activeFile);
                     return true;
                 }
                 return false;
@@ -79,11 +84,11 @@ export default class PageExtractorPlugin extends Plugin {
         // Add AI analyze command
         this.addCommand({
             id: 'ai-analyze-note',
-            name: 'AI Analyze Current Note',
+            name: 'AI analyze current note',
             checkCallback: (checking: boolean) => {
                 if (this.settings.aiEnabled) {
                     if (!checking) {
-                        this.aiHandler.analyzeCurrentNote();
+                        void this.aiHandler.analyzeCurrentNote();
                     }
                     return true;
                 }
@@ -110,35 +115,30 @@ export default class PageExtractorPlugin extends Plugin {
 
         // Add new ribbon icon if AI is enabled
         if (this.settings.aiEnabled) {
-            this.aiRibbonIcon = this.addRibbonIcon('lightbulb', 'AI Analyze', () => {
-                this.aiHandler.analyzeCurrentNote();
+            this.aiRibbonIcon = this.addRibbonIcon('lightbulb', 'AI analyze', () => {
+                void this.aiHandler.analyzeCurrentNote();
             });
         }
     }
 
     async loadSettings() {
-        const savedData = await this.loadData() ?? {};
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, savedData);
+        const savedData = ((await this.loadData()) ?? {}) as Partial<PageExtractorSettings> & { geminiApiKey?: unknown };
+        const { geminiApiKey, ...rest } = savedData;
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, rest);
 
         // Migration: move old plaintext geminiApiKey into SecretStorage
-        if (savedData.geminiApiKey && typeof savedData.geminiApiKey === 'string' && savedData.geminiApiKey.trim() !== '') {
+        if (typeof geminiApiKey === 'string' && geminiApiKey.trim() !== '') {
             const secretName = 'page-extractor-gemini-key';
             try {
-                this.app.secretStorage.setSecret(secretName, savedData.geminiApiKey);
+                this.app.secretStorage.setSecret(secretName, geminiApiKey);
                 this.settings.geminiApiKeyName = secretName;
-                // Remove the old plaintext key from settings
-                delete (this.settings as any).geminiApiKey;
                 await this.saveData(this.settings);
-                console.log('Page Extractor: Migrated Gemini API key to SecretStorage.');
             } catch (e) {
                 console.error('Page Extractor: Failed to migrate Gemini API key to SecretStorage:', e);
             }
-        } else {
+        } else if ('geminiApiKey' in savedData) {
             // Clean up old field if it exists but is empty
-            if ('geminiApiKey' in savedData) {
-                delete (this.settings as any).geminiApiKey;
-                await this.saveData(this.settings);
-            }
+            await this.saveData(this.settings);
         }
     }
 

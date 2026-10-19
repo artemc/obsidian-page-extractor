@@ -1,4 +1,4 @@
-import { App, MarkdownView, TFile } from 'obsidian';
+import { App, FileView, MarkdownView, TFile } from 'obsidian';
 import { PdfInfo } from './types';
 
 export class PdfDetector {
@@ -21,7 +21,7 @@ export class PdfDetector {
                                pdfEmbed.getAttribute('data-src') ||
                                pdfEmbed.getAttribute('data-path');
                 if (srcAttr) {
-                    const filePath = srcAttr.split('#')[0];
+                    const filePath = srcAttr.split('#')[0] ?? srcAttr;
                     const file = this.app.vault.getAbstractFileByPath(filePath);
                     
                     if (file instanceof TFile && file.extension.toLowerCase() === 'pdf') {
@@ -32,10 +32,9 @@ export class PdfDetector {
         }
 
         // Strategy 3: Check PDF viewer leaves
-        const leaves = this.app.workspace.getLeavesOfType('pdf');
-        if (leaves.length > 0) {
-            // @ts-expect-error - accessing internal PDF view state (no public API for pdf leaf file)
-            const file = leaves[0].view?.file;
+        const view = this.app.workspace.getLeavesOfType('pdf')[0]?.view;
+        if (view instanceof FileView) {
+            const file = view.file;
             if (file?.extension.toLowerCase() === 'pdf') {
                 return { file, path: file.path };
             }
@@ -66,8 +65,8 @@ export class PdfDetector {
 
         const pageElements = activeLeaf.containerEl.querySelectorAll('[data-page-number], .pdf-page-container.active');
         
-        if (pageElements.length > 0) {
-            const element = pageElements[0];
+        const element = pageElements[0];
+        if (element) {
             const pageNumber = element.getAttribute('data-page-number') || 
                               element.classList.toString().match(/page-(\d+)/)?.[1];
             

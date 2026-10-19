@@ -1,4 +1,4 @@
-import { App, MarkdownView } from 'obsidian';
+import { App, MarkdownView, WorkspaceLeaf } from 'obsidian';
 import { PageExtractorSettings } from './types';
 
 export class NoteCreator {
@@ -81,8 +81,8 @@ export class NoteCreator {
         if (leaves.length === 0) return null;
 
         // Find the leaf with the highest x-coordinate (rightmost position)
-        let rightmostLeaf = leaves[0];
-        let maxX = 0;
+        let rightmostLeaf: WorkspaceLeaf | undefined;
+        let maxX = -Infinity;
 
         for (const leaf of leaves) {
             // Get the DOM element of the leaf to check its position
@@ -95,7 +95,7 @@ export class NoteCreator {
             }
         }
 
-        return rightmostLeaf.view instanceof MarkdownView ? rightmostLeaf.view : null;
+        return rightmostLeaf?.view instanceof MarkdownView ? rightmostLeaf.view : null;
     }
 
     private generateFileName(pdfPath: string, pageNumber?: number): string {
@@ -103,8 +103,8 @@ export class NoteCreator {
         const pdfName = pdfPath.split('/').pop()?.replace('.pdf', '') || 'Unknown PDF';
         
         let fileName = this.settings.noteNameTemplate
-            .replace('{{date}}', now.toISOString().split('T')[0])
-            .replace('{{time}}', now.toTimeString().split(' ')[0].replace(/:/g, '-'))
+            .replace('{{date}}', now.toISOString().slice(0, 10))
+            .replace('{{time}}', now.toTimeString().slice(0, 8).replace(/:/g, '-'))
             .replace('{{pdf}}', pdfName)
             .replace('{{page}}', pageNumber?.toString() || 'Full');
         

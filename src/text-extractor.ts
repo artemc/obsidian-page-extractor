@@ -1,4 +1,22 @@
-import { App, TFile } from 'obsidian';
+import { App, TFile, loadPdfJs } from 'obsidian';
+
+// Minimal subset of the PDF.js API used by this plugin.
+interface PdfJsLib {
+    getDocument(src: { data: ArrayBuffer }): { promise: Promise<PdfDocument> };
+}
+
+interface PdfDocument {
+    numPages: number;
+    getPage(pageNumber: number): Promise<{ getTextContent(): Promise<{ items: unknown[] }> }>;
+}
+
+function joinTextItems(items: unknown[]): string {
+    return items
+        .map(item => (item as { str?: string }).str ?? '')
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
 
 export class TextExtractor {
     constructor(private app: App) {}
@@ -41,11 +59,7 @@ export class TextExtractor {
             const textContent = await page.getTextContent();
             
             // Combine all text items
-            const extractedText = textContent.items
-                .map((item: any) => item.str)
-                .join(' ')
-                .replace(/\s+/g, ' ')
-                .trim();
+            const extractedText = joinTextItems(textContent.items);
 
             if (!extractedText) {
                 return `No text found on page ${pageNumber} (may be image-based PDF)`;
@@ -84,11 +98,7 @@ export class TextExtractor {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
                 
-                const pageText = textContent.items
-                    .map((item: any) => item.str)
-                    .join(' ')
-                    .replace(/\s+/g, ' ')
-                    .trim();
+                const pageText = joinTextItems(textContent.items);
 
                 if (pageText) {
                     fullText += `\n\n## Page ${pageNum}\n\n${pageText}`;
@@ -108,38 +118,11 @@ export class TextExtractor {
     }
 
     /**
-     * Load PDF.js library from Obsidian
+     * Load the PDF.js library bundled with Obsidian.
      */
-    private async loadPdfJs(): Promise<any> {
+    private async loadPdfJs(): Promise<PdfJsLib | null> {
         try {
-            // Obsidian has PDF.js built-in, try to access it
-            if ((window as any).pdfjsLib) {
-                return (window as any).pdfjsLib;
-            }
-
-            // Try to load from Obsidian's built-in PDF.js
-            const pdfjsLib = await (window as any).require?.('pdfjs-dist/build/pdf');
-            if (pdfjsLib) {
-                // Set worker source if available
-                if ((window as any).require) {
-                    try {
-                        pdfjsLib.GlobalWorkerOptions.workerSrc = (window as any).require.resolve('pdfjs-dist/build/pdf.worker.min.js');
-                    } catch (e) {
-                        // Worker might not be available, continue without it
-                        console.warn('PDF.js worker not available, using main thread');
-                    }
-                }
-                return pdfjsLib;
-            }
-
-            // Fallback: Try to access from global scope (for plugins)
-            const global = window as any;
-            if (global.require && global.require.resolve) {
-                const pdfjs = global.require('pdfjs-dist');
-                return pdfjs;
-            }
-
-            return null;
+            return (await loadPdfJs()) as PdfJsLib;
         } catch (error) {
             console.error('Failed to load PDF.js:', error);
             return null;
