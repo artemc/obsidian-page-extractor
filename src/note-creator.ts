@@ -1,6 +1,9 @@
 import { App, MarkdownView, WorkspaceLeaf } from 'obsidian';
 import { PageExtractorSettings } from './types';
 
+// A single page or an inclusive page range
+export type Pages = number | { from: number; to: number };
+
 export class NoteCreator {
     // Leaf in the right split that received the last extracted note
     private splitLeaf: WorkspaceLeaf | null = null;
@@ -45,8 +48,8 @@ export class NoteCreator {
         return leaf;
     }
 
-    async createNewNoteWithText(extractedText: string, pdfPath: string, pageNumber?: number) {
-        const fileName = this.generateFileName(pdfPath, pageNumber);
+    async createNewNoteWithText(extractedText: string, pdfPath: string, pages?: Pages) {
+        const fileName = this.generateFileName(pdfPath, pages);
         const folderPath = this.settings.noteFolder;
         const fullPath = folderPath ? `${folderPath}/${fileName}.md` : `${fileName}.md`;
 
@@ -58,7 +61,7 @@ export class NoteCreator {
             }
         }
 
-        const noteContent = this.formatExtractedText(extractedText, pdfPath, pageNumber);
+        const noteContent = this.formatExtractedText(extractedText, pdfPath, pages);
         
         try {
             const file = await this.app.vault.create(fullPath, noteContent);
@@ -135,28 +138,32 @@ export class NoteCreator {
         return rightmostLeaf?.view instanceof MarkdownView ? rightmostLeaf.view : null;
     }
 
-    private generateFileName(pdfPath: string, pageNumber?: number): string {
+    private generateFileName(pdfPath: string, pages?: Pages): string {
         const now = new Date();
+        const pageLabel = typeof pages === 'object' ? `${pages.from}-${pages.to}` : pages?.toString();
         const pdfName = pdfPath.split('/').pop()?.replace('.pdf', '') || 'Unknown PDF';
         
         let fileName = this.settings.noteNameTemplate
             .replace('{{date}}', now.toISOString().slice(0, 10))
             .replace('{{time}}', now.toTimeString().slice(0, 8).replace(/:/g, '-'))
             .replace('{{pdf}}', pdfName)
-            .replace('{{page}}', pageNumber?.toString() || 'Full');
+            .replace('{{page}}', pageLabel || 'Full');
         
         if (this.settings.includeSourcePdfName && !this.settings.noteNameTemplate.includes('{{pdf}}')) {
             fileName = `${pdfName} - ${fileName}`;
         }
         
         if (this.settings.includePageNumber && !this.settings.noteNameTemplate.includes('{{page}}')) {
-            fileName = pageNumber ? `${fileName} - Page ${pageNumber}` : `${fileName} - Full PDF`;
+            if (typeof pages === 'object') fileName = `${fileName} - Pages ${pageLabel}`;
+            else fileName = pages ? `${fileName} - Page ${pages}` : `${fileName} - Full PDF`;
         }
         
         return fileName.replace(/[<>:"/\\|?*]/g, '-');
     }
 
-    private formatExtractedText(text: string, pdfPath: string, pageNumber?: number): string {
+    private formatExtractedText(text: string, pdfPath: string, pages?: Pages): string {
+        // Links of a range point to its first page
+        const pageNumber = typeof pages === 'object' ? pages.from : pages;
         const pdfName = pdfPath.split('/').pop() || 'Unknown PDF';
         
         // Create the link field in the format [[filename#page=pageNumber]]

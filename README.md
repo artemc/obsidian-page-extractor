@@ -7,6 +7,7 @@ An Obsidian plugin to extract text and content from PDF files and process it wit
 ### PDF Text Extraction
 
 - **Extract from Single Page**: Right-click on a page in a PDF view (works best with the [PDF++ plugin](https://github.com/Mob-sakai/obsidian-pdf-plus)) and extract its text content.
+- **Extract a Page Range**: Right-click a page and choose *Mark page N as range start*, then right-click another page and extract the pages between them to a new or the current note. *Extract page range...* opens a dialog where you type the first and last page. Each page gets its own `## Page N` heading.
 - **Extract Selected Text**: Extract only the text you've selected on a PDF page.
 - **Extract Full PDF**: Right-click a PDF file in the file explorer to extract the text from all its pages into a single note.
 - **Extract All Pages to Separate Notes**: Extract each page of a PDF into its own note.

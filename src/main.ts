@@ -56,6 +56,32 @@ export default class PageExtractorPlugin extends Plugin {
         });
 
         this.addCommand({
+            id: 'mark-pdf-page-as-range-start',
+            name: 'Mark current PDF page as range start',
+            checkCallback: (checking: boolean) => {
+                const pageInfo = this.menuHandler.getCurrentPdfPageInfo();
+                if (pageInfo) {
+                    if (!checking) this.menuHandler.markRangeStart(pageInfo);
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        this.addCommand({
+            id: 'extract-pdf-page-range',
+            name: 'Extract PDF page range',
+            checkCallback: (checking: boolean) => {
+                const pageInfo = this.menuHandler.getCurrentPdfPageInfo();
+                if (pageInfo) {
+                    if (!checking) void this.menuHandler.openPageRangeModal(pageInfo);
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        this.addCommand({
             id: 'extract-pdf-page-to-current-note',
             name: 'Extract current PDF page to current note',
             checkCallback: (checking: boolean) => {
