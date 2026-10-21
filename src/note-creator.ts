@@ -2,7 +2,32 @@ import { App, MarkdownView, WorkspaceLeaf } from 'obsidian';
 import { PageExtractorSettings } from './types';
 
 export class NoteCreator {
+    // Leaf in the right split that received the last extracted note
+    private splitLeaf: WorkspaceLeaf | null = null;
+
     constructor(private app: App, private settings: PageExtractorSettings) {}
+
+    // Reuse the existing right split: open each new note as a new tab there instead of splitting again
+    private getTargetLeaf(): WorkspaceLeaf {
+        const workspace = this.app.workspace;
+        if (!this.settings.openToTheRight) return workspace.getLeaf(false);
+
+        const active = workspace.getMostRecentLeaf();
+        let splitAlive = false;
+        workspace.iterateRootLeaves(leaf => {
+            if (leaf === this.splitLeaf) splitAlive = true;
+        });
+
+        let leaf: WorkspaceLeaf;
+        if (this.splitLeaf && splitAlive && this.splitLeaf.parent !== active?.parent) {
+            workspace.setActiveLeaf(this.splitLeaf, { focus: false });
+            leaf = workspace.getLeaf('tab');
+        } else {
+            leaf = workspace.getLeaf('split', 'vertical');
+        }
+        this.splitLeaf = leaf;
+        return leaf;
+    }
 
     async createNewNoteWithText(extractedText: string, pdfPath: string, pageNumber?: number) {
         const fileName = this.generateFileName(pdfPath, pageNumber);
@@ -23,9 +48,7 @@ export class NoteCreator {
             const file = await this.app.vault.create(fullPath, noteContent);
             
             // Open the new note - either to the right or in current pane
-            const leaf = this.settings.openToTheRight 
-                ? this.app.workspace.getLeaf('split', 'vertical')
-                : this.app.workspace.getLeaf(false);
+            const leaf = this.getTargetLeaf();
             await leaf.openFile(file);
             
             return fileName;
@@ -37,9 +60,7 @@ export class NoteCreator {
                 const file = await this.app.vault.create(uniquePath, noteContent);
                 
                 // Open the new note - either to the right or in current pane
-                const leaf = this.settings.openToTheRight 
-                    ? this.app.workspace.getLeaf('split', 'vertical')
-                    : this.app.workspace.getLeaf(false);
+                const leaf = this.getTargetLeaf();
                 await leaf.openFile(file);
                 
                 return `${fileName}-${timestamp}`;
