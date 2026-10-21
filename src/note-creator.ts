@@ -13,14 +13,30 @@ export class NoteCreator {
         if (!this.settings.openToTheRight) return workspace.getLeaf(false);
 
         const active = workspace.getMostRecentLeaf();
-        let splitAlive = false;
+        const activeX = active ? active.view.containerEl.getBoundingClientRect().x : -Infinity;
+
+        // Prefer the split that got the last extracted note, otherwise the rightmost existing
+        // tab group to the right of the active one (e.g. a split made by hand)
+        let target: WorkspaceLeaf | null = null;
+        let maxX = activeX;
         workspace.iterateRootLeaves(leaf => {
-            if (leaf === this.splitLeaf) splitAlive = true;
+            if (leaf.parent === active?.parent) return;
+            if (leaf === this.splitLeaf) {
+                target = leaf;
+                maxX = Infinity;
+                return;
+            }
+            const rect = leaf.view.containerEl.getBoundingClientRect();
+            // Background tabs have no size; the visible tab stands for its group
+            if (rect.width > 0 && rect.x > maxX) {
+                maxX = rect.x;
+                target = leaf;
+            }
         });
 
         let leaf: WorkspaceLeaf;
-        if (this.splitLeaf && splitAlive && this.splitLeaf.parent !== active?.parent) {
-            workspace.setActiveLeaf(this.splitLeaf, { focus: false });
+        if (target) {
+            workspace.setActiveLeaf(target, { focus: false });
             leaf = workspace.getLeaf('tab');
         } else {
             leaf = workspace.getLeaf('split', 'vertical');
