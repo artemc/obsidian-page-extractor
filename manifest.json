@@ -1,7 +1,7 @@
 {
 	"id": "page-extractor",
 	"name": "Page Extractor",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"minAppVersion": "1.13.0",
 	"description": "Extract text from PDF pages. Works with PDF++ plugin for enhanced PDF viewing.",
 	"author": "artemc",
