@@ -17,7 +17,7 @@ export class PageExtractorSettingTab extends PluginSettingTab {
     async setControlValue(key: string, value: unknown): Promise<void> {
         (this.plugin.settings as unknown as Record<string, unknown>)[key] = value;
         await this.plugin.saveSettings();
-        if (key === 'aiEnabled' || key === 'aiProvider') {
+        if (key === 'aiEnabled' || key === 'aiProvider' || key === 'agentName') {
             this.update();
         }
     }
@@ -25,6 +25,9 @@ export class PageExtractorSettingTab extends PluginSettingTab {
     getSettingDefinitions(): SettingDefinitionItem<keyof PageExtractorSettings>[] {
         const settings = this.plugin.settings;
         const aiVisible = () => settings.aiEnabled;
+        const agentVisible = () => settings.aiEnabled && settings.aiProvider === 'agent';
+        const piVisible = () => agentVisible() && settings.agentName === 'pi';
+        const claudeVisible = () => agentVisible() && settings.agentName === 'claude';
 
         return [
             {
@@ -90,7 +93,7 @@ export class PageExtractorSettingTab extends PluginSettingTab {
                         control: {
                             type: 'dropdown',
                             key: 'aiProvider',
-                            options: { ollama: 'Ollama', gemini: 'Gemini' },
+                            options: { ollama: 'Ollama', gemini: 'Gemini', agent: 'Command-line agent (SSH)' },
                         },
                     },
                     {
@@ -116,6 +119,94 @@ export class PageExtractorSettingTab extends PluginSettingTab {
                         desc: 'Name of the Gemini model to use.',
                         visible: () => settings.aiEnabled && settings.aiProvider === 'gemini',
                         control: { type: 'text', key: 'geminiModel', placeholder: 'gemini-1.5-flash' },
+                    },
+                    {
+                        name: 'Agent host',
+                        desc: 'SSH host that runs the agent, as you would pass it to ssh (e.g. a Host alias from ~/.ssh/config). Key-based login is required: password prompts are disabled. Leave empty to run the agent on this computer.',
+                        visible: agentVisible,
+                        control: { type: 'text', key: 'agentHost', placeholder: 'myserver' },
+                    },
+                    {
+                        name: 'Agent',
+                        desc: 'Command-line agent to run. The prompt and note text are sent to its standard input; the agent runs with all tools disabled in a temporary empty directory.',
+                        visible: agentVisible,
+                        control: {
+                            type: 'dropdown',
+                            key: 'agentName',
+                            options: { pi: 'pi', claude: 'Claude Code' },
+                        },
+                    },
+                    {
+                        name: 'Agent timeout',
+                        desc: 'Seconds to wait for the answer before the agent is stopped.',
+                        visible: agentVisible,
+                        control: { type: 'number', key: 'agentTimeoutSeconds', min: 10, step: 1 },
+                    },
+                    {
+                        name: 'Pi executable',
+                        desc: 'Path to pi on the agent host. A non-interactive SSH session may not have it on PATH, so an absolute path or ~/ is safer.',
+                        visible: piVisible,
+                        control: { type: 'text', key: 'piPath', placeholder: '~/.local/bin/pi' },
+                    },
+                    {
+                        name: 'Pi provider',
+                        desc: 'Value of --provider. Leave empty for the pi default.',
+                        visible: piVisible,
+                        control: { type: 'text', key: 'piProvider', placeholder: 'openai-codex' },
+                    },
+                    {
+                        name: 'Pi model',
+                        desc: 'Value of --model. Run "pi --list-models" on the host to see the options. Leave empty for the pi default.',
+                        visible: piVisible,
+                        control: { type: 'text', key: 'piModel', placeholder: 'gpt-5.6-luna' },
+                    },
+                    {
+                        name: 'Pi thinking level',
+                        desc: 'Value of --thinking.',
+                        visible: piVisible,
+                        control: {
+                            type: 'dropdown',
+                            key: 'piThinking',
+                            options: {
+                                '': 'Default',
+                                off: 'Off',
+                                minimal: 'Minimal',
+                                low: 'Low',
+                                medium: 'Medium',
+                                high: 'High',
+                                xhigh: 'Extra high',
+                                max: 'Max',
+                            },
+                        },
+                    },
+                    {
+                        name: 'Claude Code executable',
+                        desc: 'Path to claude on the agent host. A non-interactive SSH session may not have it on PATH, so an absolute path or ~/ is safer.',
+                        visible: claudeVisible,
+                        control: { type: 'text', key: 'claudePath', placeholder: '~/.local/bin/claude' },
+                    },
+                    {
+                        name: 'Claude Code model',
+                        desc: 'Value of --model: an alias such as "sonnet" or "haiku", or a full model name. Leave empty for the default.',
+                        visible: claudeVisible,
+                        control: { type: 'text', key: 'claudeModel', placeholder: 'sonnet' },
+                    },
+                    {
+                        name: 'Claude Code effort',
+                        desc: 'Value of --effort.',
+                        visible: claudeVisible,
+                        control: {
+                            type: 'dropdown',
+                            key: 'claudeEffort',
+                            options: {
+                                '': 'Default',
+                                low: 'Low',
+                                medium: 'Medium',
+                                high: 'High',
+                                xhigh: 'Extra high',
+                                max: 'Max',
+                            },
+                        },
                     },
                     {
                         name: 'AI prompt file',

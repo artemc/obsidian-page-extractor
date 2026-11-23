@@ -1,6 +1,7 @@
 import { TFile } from 'obsidian';
 
-export type AIProvider = 'ollama' | 'gemini';
+export type AIProvider = 'ollama' | 'gemini' | 'agent';
+export type AgentName = 'pi' | 'claude';
 
 export interface PageExtractorSettings {
     defaultExtractionMode: 'new-note' | 'current-note';
@@ -17,6 +18,17 @@ export interface PageExtractorSettings {
     ollamaModel: string;
     geminiApiKeyName: string;
     geminiModel: string;
+    // Command-line agent run over SSH (or locally when the host is empty)
+    agentHost: string;
+    agentName: AgentName;
+    agentTimeoutSeconds: number;
+    piPath: string;
+    piProvider: string;
+    piModel: string;
+    piThinking: string;
+    claudePath: string;
+    claudeModel: string;
+    claudeEffort: string;
     aiPromptFile: string;
     aiPrompt: string;
     aiLinkFields: string;

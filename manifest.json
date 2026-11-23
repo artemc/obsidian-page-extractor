@@ -6,5 +6,5 @@
 	"description": "Extract text from PDF pages. Works with PDF++ plugin for enhanced PDF viewing.",
 	"author": "artemc",
 	"authorUrl": "https://github.com/artemc",
-	"isDesktopOnly": false
+	"isDesktopOnly": true
 }

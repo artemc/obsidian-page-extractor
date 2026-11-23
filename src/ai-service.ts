@@ -3,11 +3,13 @@ import { App } from 'obsidian';
 import { AIResponse, PageExtractorSettings } from './types';
 import { OllamaService } from './ollama-service';
 import { GeminiService } from './gemini-service';
+import { AgentService } from './agent-service';
 
 export class AIService {
     private settings: PageExtractorSettings;
     private ollamaService: OllamaService;
     private geminiService: GeminiService;
+    private agentService: AgentService;
 
     constructor(
         private app: App,
@@ -28,9 +30,13 @@ export class AIService {
             this.settings.aiPromptFile,
             this.settings.aiPrompt
         );
+        this.agentService = new AgentService(this.app, this.settings);
     }
 
-    private getActiveService(): OllamaService | GeminiService {
+    private getActiveService(): OllamaService | GeminiService | AgentService {
+        if (this.settings.aiProvider === 'agent') {
+            return this.agentService;
+        }
         if (this.settings.aiProvider === 'gemini') {
             return this.geminiService;
         }
@@ -71,5 +77,6 @@ export class AIService {
             settings.aiPromptFile,
             settings.aiPrompt
         );
+        this.agentService.updateSettings(settings);
     }
 }

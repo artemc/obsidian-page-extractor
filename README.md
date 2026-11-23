@@ -27,6 +27,7 @@ An Obsidian plugin to extract text and content from PDF files and process it wit
 - **Flexible AI Providers**:
   - **Ollama**: Connect to your own self-hosted Ollama instance.
   - **Gemini**: Use the Gemini API for powerful AI processing.
+  - **Command-line agent**: Run pi or Claude Code on a server over SSH (or on this computer), using the agent's own login and model settings.
 - **Intelligent Content Generation**:
   - **Update Frontmatter**: The AI can automatically add or update the YAML frontmatter of your note (e.g., adding `tags: [summary, project-x]`).
   - **Prepend Content**: The AI's response can be automatically added to the beginning of your note.
@@ -56,11 +57,20 @@ The plugin works offline, except for the optional AI analysis, which is off by d
 - **Ollama** sends the note content to the Ollama URL you configure (usually your own machine).
 - **Gemini** sends the note content to the Google Gemini API (`generativelanguage.googleapis.com`) using your API key, stored in Obsidian secret storage. Google's terms apply.
 
+- **Command-line agent** runs `ssh <host>` with the note content on standard input (or starts the agent locally when no host is set). The agent then sends it to its own model provider. The agent runs with its tools disabled (`pi --no-tools`, `claude --tools ""`) in a temporary empty directory, so text in a PDF cannot make it run commands on the host.
+
 Nothing is sent until you enable AI analysis and run it on a note.
+
+### Command-line agent setup
+
+- The host must accept key-based SSH login without a prompt (`ssh <host> true` works in a terminal). Password prompts are disabled.
+- Set the executable path, for example `~/.local/bin/pi`: a non-interactive SSH session often does not load the shell profile, so a bare `pi` may not be found.
+- pi: provider, model and thinking level map to `--provider`, `--model`, `--thinking` (`pi --list-models` shows the options). Claude Code: model and effort map to `--model`, `--effort`.
+- Running a process makes the plugin desktop-only.
 
 ## Installation
 
-Requires Obsidian 1.13 or later.
+Requires Obsidian 1.13 or later, desktop only.
 
 
 Download `main.js`, `manifest.json` and `styles.css` from the [latest release](../../releases/latest) into `<vault>/.obsidian/plugins/page-extractor/` and enable the plugin in Obsidian.
@@ -81,6 +91,6 @@ Release: bump the version (`npm version <x.y.z>` updates `manifest.json` and `ve
 The plugin provides a comprehensive settings tab to configure:
 - Default extraction modes (new note vs. current note).
 - Note naming templates and save folders.
-- AI provider (Ollama/Gemini), API keys, models, and prompts.
+- AI provider (Ollama, Gemini or a command-line agent over SSH), API keys, models, and prompts.
 - Frontmatter fields to write as wikilinks or as quoted strings.
 - And much more.
